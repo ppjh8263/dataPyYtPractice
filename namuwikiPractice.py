@@ -2,6 +2,11 @@ import requests #크롤링 라이브러리
 from bs4 import BeautifulSoup
 import pandas as pd
 import re
+from konlpy.tag import Okt
+from collections import Counter
+import random
+import pytagcloud
+import webbrowser
 
 # 크롤링할 사이트 주소를 정의합니다.
 source_url = "https://namu.wiki/RecentChanges"
@@ -89,3 +94,31 @@ def text_cleaning(text):
 df['title'] = df['title'].apply(lambda x: text_cleaning(x))
 df['category'] = df['category'].apply(lambda x: text_cleaning(x))
 df['content_text'] = df['content_text'].apply(lambda x: text_cleaning(x))
+
+# 각 피처마다 말뭉치를 생성합니다.
+title_corpus = "".join(df['title'].tolist())
+category_corpus = "".join(df['category'].tolist())
+content_corpus = "".join(df['content_text'].tolist())
+
+nouns_tagger = Okt()
+nouns = nouns_tagger.nouns(content_corpus)
+count = Counter(nouns)
+
+remove_char_counter = Counter({x : count[x] for x in count if len(x) > 1})
+
+namu_wiki_stopwords = ['상위', '문서', '내용', '누설', '아래', '해당', '설명', '표기', '추가', '모든', '사용', '매우', '가장',
+                       '줄거리', '요소', '상황', '편집', '틀', '경우', '때문', '모습', '정도', '이후', '사실', '생각', '인물',
+                       '이름', '년월']
+
+remove_char_counter = Counter({x : remove_char_counter[x] for x in count if x not in namu_wiki_stopwords})
+
+
+
+# 가장 출현 빈도수가 높은 40개의 단어를 선정합니다.
+ranked_tags = remove_char_counter.most_common(40)
+
+# pytagcloud로 출력할 40개의 단어를 입력합니다. 단어 출력의 최대 크기는 80으로 제한합니다.
+taglist = pytagcloud.make_tags(ranked_tags, maxsize=80)
+
+# pytagcloud 이미지를 생성합니다. 폰트는 나눔 고딕을 사용합니다.
+pytagcloud.create_tag_image(taglist, 'wordcloud.jpg', size=(900, 600), fontname='NanumGothic', rectangular=False)
